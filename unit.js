@@ -23,13 +23,10 @@ export class Unit {
         this.head = HEADS[h % HEADS.length];
         this.weapon = GEARS[h % GEARS.length];
         this.hasWings = (h % 7 === 0);
-        this.hasBreasts = /\b(female|woman|girl|lady|chick|babe|hottie|milf|slut|whore|bitch|feminine|femme|she|her|mommy|mama|breedable|thicc|curvy|voluptuous|busty|bust|boobs|boobies|tits|titties|breasts|breast|chest|cleavage|rack|sexy|slutty|stripper|stripperific|thot|hoe|huge|bouncy|perky|hourglass|thick|jiggly|porn|nsfw|erotic|lewd|naked|topless|bikini|lingerie|corset|plump|round)\b/i.test(name);
+        this.hasBreasts = /\b(female|woman|women|girl|lady|chick|babe|hottie|milf|slut|whore|bitch|feminine|femme|she|her|mommy|mama|breedable|thicc|curvy|voluptuous|busty|breast|chest|cleavage|rack|sexy|slutty|stripper|stripperific|thot|hoe|huge|bouncy|perky|hourglass|thick|jiggly|porn|nsfw|erotic|lewd|naked|topless|bikini|lingerie|corset|plump|round)\b/i.test(name);
         this.seed = h;
         this.hp = 100;
-        this.x = 0;
-        this.y = 0;
-        this.angle = 0;
-        this.cooldown = 0;
+        this.x = 0; this.y = 0;
         this.topOfHeadY = 0;
     }
 
@@ -59,87 +56,79 @@ export class Unit {
         ctx.translate(this.x, this.y + (bob * scale));
         ctx.scale(scale, scale);
 
-        // Player Aura (Battle Only)
-        if (showUI && this.isPlayer) {
+        // Selection Aura (Battle Only)
+        if(showUI && this.isPlayer) {
             ctx.save();
-            ctx.beginPath();
-            ctx.ellipse(0, 0, 110, 40, 0, 0, Math.PI * 2);
-            ctx.strokeStyle = "rgba(255, 215, 0, 0.6)";
-            ctx.lineWidth = 8;
-            ctx.setLineDash([15, 15]);
-            ctx.stroke();
+            ctx.beginPath(); ctx.ellipse(0, 0, 110, 40, 0, 0, Math.PI*2);
+            ctx.strokeStyle = "rgba(255, 215, 0, 0.6)"; ctx.lineWidth = 8;
+            ctx.setLineDash([15, 15]); ctx.stroke();
             ctx.restore();
         }
 
-        // Wings
         if(this.hasWings) {
             ctx.fillStyle = p.accent; ctx.globalAlpha = 0.6;
             const wingW = 80 + Math.sin(time * 2) * 10;
-            ctx.beginPath(); 
-            ctx.ellipse(-30 * bw, -90 * bh, wingW, 25, 0.5, 0, Math.PI * 2);
-            ctx.ellipse(30 * bw, -90 * bh, wingW, 25, -0.5, 0, Math.PI * 2); 
-            ctx.fill(); 
-            ctx.globalAlpha = 1.0;
+            ctx.beginPath(); ctx.ellipse(-30 * bw, -90 * bh, wingW, 25, 0.5, 0, Math.PI * 2);
+            ctx.ellipse(30 * bw, -90 * bh, wingW, 25, -0.5, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1.0;
         }
 
-        // Legs
         ctx.strokeStyle = p.skin; ctx.lineWidth = 12 * bw; ctx.lineCap = "round";
         ctx.beginPath(); ctx.moveTo(-20 * bw, -40); ctx.lineTo(-30 * bw + walk / 2, 0); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(20 * bw, -40); ctx.lineTo(30 * bw - walk / 2, 0); ctx.stroke();
         
-        // Arms
         ctx.lineWidth = 10 * bw;
         ctx.beginPath(); ctx.moveTo(-30 * bw, -120 * bh); ctx.lineTo(-50 * bw - walk / 3, -70 * bh); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(30 * bw, -120 * bh); ctx.lineTo(50 * bw + walk / 3, -70 * bh); ctx.stroke();
         
-        // Torso
-        ctx.fillStyle = p.armor; 
-        ctx.beginPath(); 
-        ctx.roundRect(-torsoW / 2, -130 * bh, torsoW, torsoH, 10); 
-        ctx.fill();
+        ctx.fillStyle = p.armor; ctx.beginPath(); ctx.roundRect(-torsoW / 2, -130 * bh, torsoW, torsoH, 10); ctx.fill();
         
-        // Restored Breast Logic
         if(this.hasBreasts) {
             const bBounce = Math.abs(Math.sin(time * 12)) * 3;
-            const bRad = torsoW * 0.28, bY = -130 * bh + (torsoH * 0.35) + bBounce; 
-            ctx.fillStyle = p.armor;
-            ctx.beginPath(); ctx.arc(-torsoW * 0.24, bY, bRad, 0, Math.PI * 2); ctx.fill();
-            ctx.beginPath(); ctx.arc(torsoW * 0.24, bY, bRad, 0, Math.PI * 2); ctx.fill();
-            // Optional: Slight accent highlight for volume
-            ctx.strokeStyle = "rgba(255,255,255,0.1)"; ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.arc(-torsoW * 0.24, bY, bRad, 0, Math.PI); ctx.stroke();
+            const bRad = torsoW * 0.23, bY = -130 * bh + (torsoH * 0.3) + bBounce, bOff = torsoW * 0.24; 
+            ctx.fillStyle = p.armor; ctx.strokeStyle = "rgba(0,0,0,0.2)"; ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.arc(-bOff, bY, bRad, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+            ctx.beginPath(); ctx.arc(bOff, bY, bRad, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
         }
 
-        // Head Logic (Restored Skull/Detail)
+        // HEAD VARIATIONS
         ctx.save();
         ctx.translate(hunch, -130 * bh);
         const hr = 25;
         ctx.fillStyle = (this.head === "Skull") ? "#eee" : p.armor;
-        ctx.beginPath(); ctx.arc(0, -35, hr, 0, Math.PI * 2); ctx.fill();
+        if(this.head === "Hooded") { ctx.beginPath(); ctx.arc(0, -30, hr + 4, Math.PI, 0); ctx.lineTo(hr + 8, 0); ctx.lineTo(-hr - 8, 0); ctx.closePath(); ctx.fill(); }
+        else if (this.head === "Beast") { ctx.beginPath(); ctx.arc(0, -30, hr, 0, Math.PI * 2); ctx.ellipse(0, -20, hr + 5, 12, 0, 0, Math.PI * 2); ctx.fill(); }
+        else { ctx.beginPath(); ctx.arc(0, -30, hr, 0, Math.PI * 2); ctx.fill(); }
         
-        // Face details
-        if(this.head === "Skull") { 
-            ctx.fillStyle="#111"; 
-            ctx.beginPath(); ctx.arc(-7, -38, 4, 0, Math.PI * 2); ctx.fill();
-            ctx.beginPath(); ctx.arc(7, -38, 4, 0, Math.PI * 2); ctx.fill();
-            ctx.fillRect(-5, -28, 10, 2);
-        } else {
-            ctx.fillStyle = p.accent;
-            ctx.fillRect(-8, -40, 5, 3); ctx.fillRect(3, -40, 5, 3);
+        ctx.fillStyle = p.accent; ctx.strokeStyle = p.accent; ctx.lineCap = "round";
+        switch(this.head) {
+            case "Skull": ctx.fillStyle = "#333"; ctx.beginPath(); ctx.arc(-8,-35,4,0,Math.PI*2); ctx.arc(8,-35,4,0,Math.PI*2); ctx.fill(); ctx.fillRect(-5,-20,10,2); break;
+            case "Horned": ctx.beginPath(); ctx.moveTo(-20,-45); ctx.quadraticCurveTo(-45,-85,-10,-55); ctx.fill(); ctx.moveTo(20,-45); ctx.quadraticCurveTo(45,-85,10,-55); ctx.fill(); break;
+            case "Crown": ctx.beginPath(); ctx.moveTo(-28,-50); ctx.lineTo(-28,-75); ctx.lineTo(-14,-55); ctx.lineTo(0,-85); ctx.lineTo(14,-55); ctx.lineTo(28,-75); ctx.lineTo(28,-50); ctx.fill(); break;
+            case "Spiked": ctx.lineWidth = 5; for(let i=0;i<7;i++){ let angle=-Math.PI+(i*(Math.PI/6)); ctx.beginPath(); ctx.moveTo(Math.cos(angle)*hr,Math.sin(angle)*hr-30); ctx.lineTo(Math.cos(angle)*(hr+12),Math.sin(angle)*(hr+12)-30); ctx.stroke(); } break;
+            case "Hooded": ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.beginPath(); ctx.ellipse(0,-30,12,18,0,0,Math.PI*2); ctx.fill(); break;
+            case "Masked": ctx.fillStyle = "#222"; ctx.fillRect(-hr,-42,hr*2,12); ctx.fillStyle = p.accent; ctx.beginPath(); ctx.arc(-10,-36,3,0,Math.PI*2); ctx.arc(10,-36,3,0,Math.PI*2); ctx.fill(); break;
+            case "Wizard": ctx.beginPath(); ctx.moveTo(-38,-45); ctx.lineTo(0,-115); ctx.lineTo(38,-45); ctx.fill(); ctx.beginPath(); ctx.ellipse(0,-45,42,8,0,0,Math.PI*2); ctx.fill(); break;
+            case "Knight": ctx.strokeStyle = p.accent; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-15,-45); ctx.lineTo(0,-35); ctx.lineTo(15,-45); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0,-35); ctx.lineTo(0,-15); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0,-55); ctx.lineTo(0,-75); ctx.lineTo(15,-65); ctx.fill(); break;
+            case "Beast": ctx.beginPath(); ctx.moveTo(-15,-50); ctx.lineTo(-25,-75); ctx.lineTo(-5,-55); ctx.fill(); ctx.moveTo(15,-50); ctx.lineTo(25,-75); ctx.lineTo(5,-55); ctx.fill(); ctx.fillStyle = "#000"; ctx.fillRect(-2,-22,4,4); break;
+            case "Helmet": ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-hr,-35); ctx.lineTo(hr,-35); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0,-55); ctx.lineTo(0,-15); ctx.stroke(); ctx.fillRect(-12,-42,24,4); break;
         }
         ctx.restore();
 
-        // Weapon
-        ctx.save(); 
-        ctx.translate(45 * bw, -90 * bh); 
-        ctx.rotate(Math.sin(time * 2) * 0.15); 
-        ctx.strokeStyle = "#bbb"; ctx.lineWidth = 6;
-        ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,-80); ctx.stroke();
-        ctx.restore();
+        // WEAPON VARIATIONS
+        ctx.save(); ctx.translate(40 * bw, -90 * bh); ctx.rotate(Math.sin(time) * 0.2); ctx.strokeStyle = "#bbb"; ctx.lineWidth = 6;
+        switch(this.weapon) {
+            case "sword": ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0, -90); ctx.stroke(); ctx.lineWidth = 12; ctx.beginPath(); ctx.moveTo(-15, -10); ctx.lineTo(15, -10); ctx.stroke(); break;
+            case "axe": ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0, -80); ctx.stroke(); ctx.fillStyle = "#777"; ctx.fillRect(-25, -80, 25, 30); break;
+            case "staff": ctx.beginPath(); ctx.moveTo(0,20); ctx.lineTo(0, -110); ctx.stroke(); ctx.fillStyle = p.accent; ctx.beginPath(); ctx.arc(0, -110, 10, 0, Math.PI*2); ctx.fill(); break;
+            case "spear": ctx.beginPath(); ctx.moveTo(0,20); ctx.lineTo(0, -120); ctx.stroke(); ctx.fillStyle = "#ccc"; ctx.beginPath(); ctx.moveTo(-6,-120); ctx.lineTo(0,-135); ctx.lineTo(6,-120); ctx.fill(); break;
+            case "bow": ctx.strokeStyle = "#642"; ctx.beginPath(); ctx.arc(-15, -30, 40, -Math.PI/2, Math.PI/2); ctx.stroke(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-15, -70); ctx.lineTo(-15, 10); ctx.stroke(); break;
+            case "claws": ctx.strokeStyle = p.accent; ctx.lineWidth = 3; for(let i=-8; i<=8; i+=8) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i+5, -25); ctx.stroke(); } break;
+            case "whip": ctx.beginPath(); ctx.moveTo(0,0); ctx.bezierCurveTo(20, -20, -20, -40, 40, -60); ctx.stroke(); break;
+            case "orb": ctx.fillStyle = p.accent; ctx.shadowBlur = 15; ctx.shadowColor = p.accent; ctx.beginPath(); ctx.arc(0, -30, 15, 0, Math.PI*2); ctx.fill(); break;
+        }
+        ctx.restore(); ctx.restore();
 
-        ctx.restore();
-
-        // UI Layer
+        // UI LAYER
         if (showUI) {
             let barY = this.topOfHeadY - 20;
             ctx.font = this.isPlayer ? "bold 14px sans-serif" : "12px sans-serif";
