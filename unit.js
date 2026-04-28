@@ -48,22 +48,17 @@ export class Unit {
         
         const torsoW = 60 * bw, torsoH = 90 * bh;
         
-        // Calculate dynamic head height for UI labels
+        // Dynamic head height calculation for UI (Battle only)
         let headVisualTop = -130 * bh - 60; 
         if(this.head === "Wizard") headVisualTop = -130 * bh - 115;
         else if(this.head === "Horned" || this.head === "Crown") headVisualTop = -130 * bh - 85;
         else if(this.head === "Spiked") headVisualTop = -130 * bh - 42;
-        
-        // Global Y coordinate for the UI
         this.topOfHeadY = this.y + (bob * scale) + (headVisualTop * scale);
 
-        ctx.save();
-        // Translate to the character position before ANY drawing occurs
-        ctx.translate(this.x, this.y);
-
-        // 1. Selection Aura (Ground Circle) - Drawn AT (0,0) inside translated context
+        // --- GROUND SELECTION AURA (BATTLE ONLY) ---
         if(showUI && this.isPlayer) {
             ctx.save();
+            ctx.translate(this.x, this.y);
             ctx.beginPath(); 
             ctx.ellipse(0, 0, 110 * scale, 40 * scale, 0, 0, Math.PI * 2);
             ctx.strokeStyle = "rgba(255, 215, 0, 0.8)"; 
@@ -73,9 +68,8 @@ export class Unit {
             ctx.restore();
         }
 
-        // Apply secondary translation for animation and scale for the body
         ctx.save();
-        ctx.translate(0, bob * scale);
+        ctx.translate(this.x, this.y + (bob * scale));
         ctx.scale(scale, scale);
 
         // Wings
@@ -99,7 +93,7 @@ export class Unit {
         // Torso
         ctx.fillStyle = p.armor; ctx.beginPath(); ctx.roundRect(-torsoW / 2, -130 * bh, torsoW, torsoH, 10); ctx.fill();
         
-        // Breasts (Detection logic restored)
+        // Breasts
         if(this.hasBreasts) {
             const bBounce = Math.abs(Math.sin(time * 12)) * 3;
             const bRad = torsoW * 0.23, bY = -130 * bh + (torsoH * 0.3) + bBounce, bOff = torsoW * 0.24; 
@@ -132,7 +126,7 @@ export class Unit {
         }
         ctx.restore();
 
-        // Weapons
+        // Weapon
         ctx.save(); ctx.translate(40 * bw, -90 * bh); ctx.rotate(Math.sin(time) * 0.2); ctx.strokeStyle = "#bbb"; ctx.lineWidth = 6;
         switch(this.weapon) {
             case "sword": ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0, -90); ctx.stroke(); ctx.lineWidth = 12; ctx.beginPath(); ctx.moveTo(-15, -10); ctx.lineTo(15, -10); ctx.stroke(); break;
@@ -145,10 +139,9 @@ export class Unit {
             case "orb": ctx.fillStyle = p.accent; ctx.shadowBlur = 15; ctx.shadowColor = p.accent; ctx.beginPath(); ctx.arc(0, -30, 15, 0, Math.PI*2); ctx.fill(); break;
         }
         ctx.restore(); 
-        ctx.restore(); // Restore body bob/scale
-        ctx.restore(); // Restore global translation
+        ctx.restore(); // End character bob/scale
 
-        // 2. UI Layer (YOU and Health) - Positioned relative to global canvas
+        // --- BATTLE UI OVERLAY (STRICTLY HIDDEN IN GENERATOR) ---
         if (showUI) {
             let barY = this.topOfHeadY - 20;
             ctx.font = this.isPlayer ? "bold 16px sans-serif" : "12px sans-serif";
