@@ -143,24 +143,25 @@ export class Unit {
         ctx.fillStyle = p.accent;
         ctx.beginPath(); ctx.arc(kneeX, kneeY, 5 * bw, 0, Math.PI * 2); ctx.fill();
 
-        // Boot — chunky shape at foot
+        // Boot — toe follows the actual shin direction so both feet look the same
+        const shinAngle = Math.atan2(footY - kneeY, footX - kneeX);
         ctx.fillStyle = p.armor;
         ctx.save();
         ctx.translate(footX, footY);
+        ctx.rotate(shinAngle + Math.PI / 2);
         ctx.beginPath();
-        // Boot toe extends in walk direction
-        ctx.moveTo(-7 * bw, -6 * bh);
-        ctx.lineTo(-8 * bw,  4 * bh);
-        ctx.lineTo( 12 * bw * side,  4 * bh);  // toe
-        ctx.lineTo( 10 * bw * side, -6 * bh);
+        ctx.moveTo(-7 * bw, -4 * bh);
+        ctx.lineTo(-7 * bw,  5 * bh);
+        ctx.lineTo( 13 * bw,  5 * bh);
+        ctx.lineTo( 13 * bw, -2 * bh);
+        ctx.lineTo(  0,      -6 * bh);
         ctx.closePath(); ctx.fill();
-        // Boot highlight
         ctx.fillStyle = "rgba(255,255,255,0.15)";
         ctx.beginPath();
-        ctx.moveTo(-5 * bw, -5 * bh);
-        ctx.lineTo(-6 * bw, 0);
-        ctx.lineTo( 6 * bw * side, 0);
-        ctx.lineTo( 7 * bw * side, -5 * bh);
+        ctx.moveTo(-5 * bw, -3 * bh);
+        ctx.lineTo(-5 * bw,  1 * bh);
+        ctx.lineTo(  8 * bw,  1 * bh);
+        ctx.lineTo(  9 * bw, -2 * bh);
         ctx.closePath(); ctx.fill();
         ctx.restore();
     }
