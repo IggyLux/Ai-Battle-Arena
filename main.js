@@ -9,55 +9,57 @@ const dCtx = dCanvas.getContext('2d');
 const aCanvas = document.getElementById('arenaCanvas');
 const aCtx = aCanvas.getContext('2d');
 
-// -------------------------
-// VULGAR / FUNNY BOT NAMES
-// -------------------------
+// --- Mobile detection -------------------------------------------------
+const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+// Scale factor: 0.6 on mobile = 40% fewer pixels, 1.0 on desktop
+const CANVAS_SCALE = isMobile ? 0.6 : 1.0;
+
+// --- Helper: resize arena canvas (keeps drawing area proportional) ---
+function resizeArenaCanvas() {
+    if (gameState !== "battle") return; // only resize when arena is active
+
+    aCanvas.width  = Math.floor(window.innerWidth  * CANVAS_SCALE);
+    aCanvas.height = Math.floor(window.innerHeight * CANVAS_SCALE);
+    aCanvas.style.width  = '100%';
+    aCanvas.style.height = '100%';
+
+    // Optional: clamp all units to the new boundaries so they don't fly off
+    if (bots.length) {
+        bots.forEach(b => {
+            b.x = Math.max(60, Math.min(aCanvas.width - 60, b.x));
+            b.y = Math.max(100, Math.min(aCanvas.height - 40, b.y));
+        });
+    }
+}
+
+// --- Bot name list (unchanged) ---------------------------------------
 const BOT_NAMES = [
-    // Fantasy Trope Parodies
     "Legolas but Thicc", "Gandalf the Horny", "Boromir's Last Thrust",
     "Aragorn the Premature", "Frodo Butthole", "Sauron's One Ring Worm",
     "Gimli Girth", "Saruman Slightly Aroused",
-
-    // Generic RPG Basement-Dweller Energy
     "XxDarkLordxx69", "Shadow_Blade_420", "ChaosReaper2007",
     "NotAVirgin Knight", "Sir Cumference", "Lord Farquaad Clone",
     "Paladin of Porn", "Definitely Human",
-
-    // Gross / Toilet Humor
     "Sir Shitsalot", "Duke of Diarrhea", "Baron Von Fart",
     "Count Skidmark", "Swamp Ass Summoner", "The Flatulent Mage",
     "Dung Herald", "Odor Paladin",
-
-    // Horny Villain Archetypes
     "Voluptuous Villain", "The Sexy Skeleton", "Horny Lich King",
     "Seductive Warlord", "Busty Dark Empress", "The Throbbing Overlord",
     "Warlord of Wet Dreams", "Erect Sorcerer",
-
-    // Pathetic / Loser Energy
     "Undefeated (0-47)", "Mom's Basement Mage", "Dies First Every Time",
     "Cringe Knight", "Neckbeard Necromancer", "The Friendzoned Fighter",
     "Participation Trophy Paladin", "Built Different (He's Not)",
-
-    // Inappropriately Named Warriors
     "Dongslayer the Brave", "Nipple Wizard Supreme", "Ballista McTesticle",
     "Fanny Ravager", "Cock Goblin King", "The Ass Heretic",
     "Groin Destroyer 3000", "Taint Champion",
-
-    // Sad Lore Guys
     "My Wife Left Me Warrior", "Divorced Dad Druid", "Mid-Life Crisis Mage",
     "Used to Be Somebody", "Peak Was Age 22", "Therapy Dropout Thane",
     "Emotional Damage Elf", "Cries in Chainmail",
-
-    // Corporate / Out-of-Place
     "Todd from Accounting", "HR Violation Incarnate", "Karen the Conqueror",
     "LinkedIn Warlock", "Six Sigma Slayer", "Manager of Mayhem",
-
-    // Cursed Adjective + Noun
     "Moist Avenger", "Crusty Specter", "Flaccid Titan",
     "Glistening Menace", "Damp Paladin", "Chafed Destroyer",
     "Sweaty Demigod", "Pungent Overlord",
-
-    // Anime/Weeb Parody
     "Naruto If He Had Ass", "Goku's Horny Cousin", "Waifu Slayer",
     "Touch Grass Samurai", "Isekai Reject", "Basement Ronin",
     "Very Normal Sensei", "Hentai Protagonist",
@@ -74,24 +76,32 @@ function startBattle() {
     document.getElementById('screen-battle').style.display = "block";
     document.getElementById('screen-result').style.display = "none";
 
-    aCanvas.width = window.innerWidth;
-    aCanvas.height = window.innerHeight;
+    // Apply resolution scaling
+    aCanvas.width  = Math.floor(window.innerWidth  * CANVAS_SCALE);
+    aCanvas.height = Math.floor(window.innerHeight * CANVAS_SCALE);
+    aCanvas.style.width  = '100%';
+    aCanvas.style.height = '100%';
 
     userChar.x = 200;
     userChar.y = 400;
     bots = [userChar];
 
-    const names = getRandomBotNames(6);
+    const botCount = isMobile ? 4 : 6;  // optional: keep 6 on mobile? change to 4 if still slow
+    const names = getRandomBotNames(botCount);
     names.forEach(n => {
         let b = new Unit(n, false);
         b.x = Math.random() * (aCanvas.width - 200) + 100;
         b.y = Math.random() * (aCanvas.height - 200) + 100;
         bots.push(b);
     });
+
+    // Ensure window resize updates canvas size dynamically
+    window.addEventListener('resize', resizeArenaCanvas);
 }
 
 function showResult(playerWon) {
     gameState = "result";
+    window.removeEventListener('resize', resizeArenaCanvas); // clean up
     const screen = document.getElementById('screen-result');
     const title = document.getElementById('result-title');
     const subtitle = document.getElementById('result-subtitle');
@@ -108,6 +118,7 @@ function showResult(playerWon) {
     screen.style.display = "flex";
 }
 
+// --- Main animation loop (unchanged except resize guard) -------------
 function loop() {
     time += 0.05;
 
@@ -125,7 +136,6 @@ function loop() {
     } else if (gameState === "battle") {
         aCtx.clearRect(0, 0, aCanvas.width, aCanvas.height);
 
-        // Tick death frames and remove units dead long enough
         bots.forEach(b => {
             if (b.hp <= 0) b.deathFrames = (b.deathFrames || 0) + 1;
         });
@@ -133,10 +143,8 @@ function loop() {
 
         const livingBots = bots.filter(b => b.hp > 0);
 
-        // Pass time into update and draw for orb orbital math
         arena.update(bots, aCanvas.width, aCanvas.height, time);
         arena.draw(aCtx, bots, time);
-
         bots.forEach(b => b.draw(aCtx, time, 0.35, true));
 
         const aliveCountElement = document.getElementById('aliveCount');
@@ -144,7 +152,6 @@ function loop() {
             aliveCountElement.innerText = `ALIVE: ${livingBots.length}`;
         }
 
-        // Win/lose check
         if (livingBots.length <= 1) {
             const lastOne = livingBots[0];
             if (!lastOne || !lastOne.isPlayer) {
@@ -158,6 +165,7 @@ function loop() {
     requestAnimationFrame(loop);
 }
 
+// --- Event listeners ------------------------------------------------
 const input = document.getElementById('charInput');
 input.addEventListener('input', () => {
     userChar = new Unit(input.value || " ", true);
@@ -171,12 +179,13 @@ document.getElementById('btnRetry').addEventListener('click', () => {
     document.getElementById('screen-creator').style.display = "flex";
     gameState = "creator";
     bots = [];
-    arena.bullets = [];
     arena.projectiles = [];
     arena.swings = [];
     arena.whips = [];
     arena.scratches = [];
     userChar = new Unit(input.value || "Player", true);
+    // Remove resize listener in case it's still attached
+    window.removeEventListener('resize', resizeArenaCanvas);
 });
 
 // Initialize
