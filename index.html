@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Character Arena - Modular</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="screen-creator">
+        <div class="container">
+            <h3>Character Generator</h3>
+            <input type="text" id="charInput" placeholder="Enter name..." value="Busty Ghost Knight">
+            <div id="debug" class="stats"></div>
+            <canvas id="demoCanvas" width="400" height="500"></canvas>
+            <br>
+            <button id="btnEnter">ENTER BATTLE</button>
+        </div>
+    </div>
+
+    <div id="screen-battle">
+        <div id="ui-layer">
+            <h2 id="statusTitle">BATTLE ARENA</h2>
+            <div id="aliveCount">Units: 0</div>
+        </div>
+        <canvas id="arenaCanvas"></canvas>
+    </div>
+
+    <script type="module" src="main.js"></script>
+</body>
+</html>
