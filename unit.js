@@ -26,7 +26,8 @@ export class Unit {
         this.hasBreasts = /\b(female|woman|women|girl|lady|chick|babe|hottie|milf|slut|whore|bitch|feminine|femme|she|her|mommy|mama|breedable|thicc|curvy|voluptuous|busty|breast|chest|cleavage|rack|sexy|slutty|stripper|stripperific|thot|hoe|huge|bouncy|perky|hourglass|thick|jiggly|porn|nsfw|erotic|lewd|naked|topless|bikini|lingerie|corset|plump|round)\b/i.test(name);
         this.seed = h;
         this.hp = 100;
-        this.x = 0; this.y = 0;
+        this.x = 0; 
+        this.y = 0;
         this.topOfHeadY = 0;
     }
 
@@ -46,25 +47,34 @@ export class Unit {
         }
         
         const torsoW = 60 * bw, torsoH = 90 * bh;
+        
+        // Calculate head position for UI placement
         let headVisualTop = -130 * bh - 60; 
         if(this.head === "Wizard") headVisualTop = -130 * bh - 115;
         else if(this.head === "Horned" || this.head === "Crown") headVisualTop = -130 * bh - 85;
         else if(this.head === "Spiked") headVisualTop = -130 * bh - 42;
+        
+        // Final pixel coordinate for the UI layer
         this.topOfHeadY = this.y + (bob * scale) + (headVisualTop * scale);
+
+        // --- GROUND UI LAYER (Selection Aura) ---
+        if(showUI && this.isPlayer) {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.beginPath(); 
+            ctx.ellipse(0, 0, 80 * scale * 3, 30 * scale * 3, 0, 0, Math.PI*2);
+            ctx.strokeStyle = "rgba(255, 215, 0, 0.8)"; 
+            ctx.lineWidth = 6;
+            ctx.setLineDash([10, 10]); 
+            ctx.stroke();
+            ctx.restore();
+        }
 
         ctx.save();
         ctx.translate(this.x, this.y + (bob * scale));
         ctx.scale(scale, scale);
 
-        // Selection Aura (Battle Only)
-        if(showUI && this.isPlayer) {
-            ctx.save();
-            ctx.beginPath(); ctx.ellipse(0, 0, 110, 40, 0, 0, Math.PI*2);
-            ctx.strokeStyle = "rgba(255, 215, 0, 0.6)"; ctx.lineWidth = 8;
-            ctx.setLineDash([15, 15]); ctx.stroke();
-            ctx.restore();
-        }
-
+        // Wings
         if(this.hasWings) {
             ctx.fillStyle = p.accent; ctx.globalAlpha = 0.6;
             const wingW = 80 + Math.sin(time * 2) * 10;
@@ -72,16 +82,20 @@ export class Unit {
             ctx.ellipse(30 * bw, -90 * bh, wingW, 25, -0.5, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1.0;
         }
 
+        // Legs
         ctx.strokeStyle = p.skin; ctx.lineWidth = 12 * bw; ctx.lineCap = "round";
         ctx.beginPath(); ctx.moveTo(-20 * bw, -40); ctx.lineTo(-30 * bw + walk / 2, 0); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(20 * bw, -40); ctx.lineTo(30 * bw - walk / 2, 0); ctx.stroke();
         
+        // Arms
         ctx.lineWidth = 10 * bw;
         ctx.beginPath(); ctx.moveTo(-30 * bw, -120 * bh); ctx.lineTo(-50 * bw - walk / 3, -70 * bh); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(30 * bw, -120 * bh); ctx.lineTo(50 * bw + walk / 3, -70 * bh); ctx.stroke();
         
+        // Torso
         ctx.fillStyle = p.armor; ctx.beginPath(); ctx.roundRect(-torsoW / 2, -130 * bh, torsoW, torsoH, 10); ctx.fill();
         
+        // Breasts (Logic restored for "Busty" detection)
         if(this.hasBreasts) {
             const bBounce = Math.abs(Math.sin(time * 12)) * 3;
             const bRad = torsoW * 0.23, bY = -130 * bh + (torsoH * 0.3) + bBounce, bOff = torsoW * 0.24; 
@@ -90,7 +104,7 @@ export class Unit {
             ctx.beginPath(); ctx.arc(bOff, bY, bRad, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
         }
 
-        // HEAD VARIATIONS
+        // Head Variations
         ctx.save();
         ctx.translate(hunch, -130 * bh);
         const hr = 25;
@@ -114,7 +128,7 @@ export class Unit {
         }
         ctx.restore();
 
-        // WEAPON VARIATIONS
+        // Weapons
         ctx.save(); ctx.translate(40 * bw, -90 * bh); ctx.rotate(Math.sin(time) * 0.2); ctx.strokeStyle = "#bbb"; ctx.lineWidth = 6;
         switch(this.weapon) {
             case "sword": ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0, -90); ctx.stroke(); ctx.lineWidth = 12; ctx.beginPath(); ctx.moveTo(-15, -10); ctx.lineTo(15, -10); ctx.stroke(); break;
@@ -126,18 +140,21 @@ export class Unit {
             case "whip": ctx.beginPath(); ctx.moveTo(0,0); ctx.bezierCurveTo(20, -20, -20, -40, 40, -60); ctx.stroke(); break;
             case "orb": ctx.fillStyle = p.accent; ctx.shadowBlur = 15; ctx.shadowColor = p.accent; ctx.beginPath(); ctx.arc(0, -30, 15, 0, Math.PI*2); ctx.fill(); break;
         }
-        ctx.restore(); ctx.restore();
+        ctx.restore(); 
+        ctx.restore();
 
-        // UI LAYER
+        // --- TOP UI LAYER (Health & Label) ---
         if (showUI) {
             let barY = this.topOfHeadY - 20;
-            ctx.font = this.isPlayer ? "bold 14px sans-serif" : "12px sans-serif";
+            ctx.font = this.isPlayer ? "bold 16px sans-serif" : "12px sans-serif";
             ctx.fillStyle = this.isPlayer ? "#ffd700" : "#ffffff";
             ctx.textAlign = "center";
-            ctx.fillText(this.isPlayer ? "YOU" : this.name, this.x, barY - 10);
-            ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.fillRect(this.x - 20, barY, 40, 5);
+            ctx.fillText(this.isPlayer ? "YOU" : this.name, this.x, barY - 15);
+            
+            // Health Bar
+            ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.fillRect(this.x - 30, barY, 60, 6);
             ctx.fillStyle = this.isPlayer ? "#00ffff" : "#0f0";
-            ctx.fillRect(this.x - 20, barY, (this.hp / 100) * 40, 5);
+            ctx.fillRect(this.x - 30, barY, (this.hp / 100) * 60, 6);
         }
     }
 }
