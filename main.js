@@ -125,7 +125,7 @@ function loop() {
     } else if (gameState === "battle") {
         aCtx.clearRect(0, 0, aCanvas.width, aCanvas.height);
 
-        // Tick death frames and remove units that have been dead long enough
+        // Tick death frames and remove units dead long enough
         bots.forEach(b => {
             if (b.hp <= 0) b.deathFrames = (b.deathFrames || 0) + 1;
         });
@@ -133,8 +133,9 @@ function loop() {
 
         const livingBots = bots.filter(b => b.hp > 0);
 
-        arena.update(bots, aCanvas.width, aCanvas.height);
-        arena.draw(aCtx);
+        // Pass time into update and draw for orb orbital math
+        arena.update(bots, aCanvas.width, aCanvas.height, time);
+        arena.draw(aCtx, bots, time);
 
         bots.forEach(b => b.draw(aCtx, time, 0.35, true));
 
@@ -143,7 +144,7 @@ function loop() {
             aliveCountElement.innerText = `ALIVE: ${livingBots.length}`;
         }
 
-        // Win/lose check — only trigger once
+        // Win/lose check
         if (livingBots.length <= 1) {
             const lastOne = livingBots[0];
             if (!lastOne || !lastOne.isPlayer) {
@@ -171,6 +172,10 @@ document.getElementById('btnRetry').addEventListener('click', () => {
     gameState = "creator";
     bots = [];
     arena.bullets = [];
+    arena.projectiles = [];
+    arena.swings = [];
+    arena.whips = [];
+    arena.scratches = [];
     userChar = new Unit(input.value || "Player", true);
 });
 

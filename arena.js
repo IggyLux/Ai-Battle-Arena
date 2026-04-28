@@ -1,166 +1,524 @@
 export class Arena {
     constructor() {
-        this.bullets = [];
+        // Projectiles: arrows, spears, magic missiles
+        this.projectiles = [];
+        // Melee swings: sword, axe, claws
+        this.swings = [];
+        // Whip strikes
+        this.whips = [];
+        // Scratch marks left on screen by claws (world-space, fade out)
+        this.scratches = [];
     }
 
-    update(bots, width, height) {
-        // AI & Movement
+    // ─────────────────────────────────────────
+    // Weapon category lookup
+    // ─────────────────────────────────────────
+    getWeaponType(weapon) {
+        if (["sword", "axe", "claws"].includes(weapon)) return "melee";
+        if (["bow", "spear"].includes(weapon))           return "projectile";
+        if (weapon === "staff")                          return "magic";
+        if (weapon === "orb")                            return "orb";
+        if (weapon === "whip")                           return "whip";
+        return "projectile";
+    }
+
+    // ─────────────────────────────────────────
+    // Main update — called every frame
+    // ─────────────────────────────────────────
+    update(bots, width, height, time) {
         bots.forEach(b => {
             if (b.hp <= 0) return;
+
+            // Find nearest living target
             let target = null, minDist = 999999;
             bots.forEach(other => {
                 if (other !== b && other.hp > 0) {
-                    let d = Math.hypot(other.x - b.x, other.y - b.y);
+                    const d = Math.hypot(other.x - b.x, other.y - b.y);
                     if (d < minDist) { minDist = d; target = other; }
                 }
             });
+            if (!target) return;
 
-            if (target) {
-                b.angle = Math.atan2(target.y - b.y, target.x - b.x);
-                if (minDist > 65) {
-                    b.x += Math.cos(b.angle) * 1.5;
-                    b.y += Math.sin(b.angle) * 1.5;
-                }
-                if (!(b.cooldown > 0)) {
-                    this.bullets.push({
-                        x: b.x, y: b.y - 30,
-                        vx: Math.cos(b.angle) * 8,
-                        vy: Math.sin(b.angle) * 8,
-                        owner: b,
-                        weapon: b.weapon,
-                        accent: b.palette.accent,
-                        age: 0
-                    });
-                    b.cooldown = 50;
+            b.angle = Math.atan2(target.y - b.y, target.x - b.x);
+            const type = this.getWeaponType(b.weapon);
+
+            // ── Movement ──
+            // Melee/whip/orb close in tight; ranged keeps distance
+            const preferredRange = (type === "melee" || type === "whip" || type === "orb") ? 65 : 200;
+            if (minDist > preferredRange) {
+                b.x += Math.cos(b.angle) * 1.5;
+                b.y += Math.sin(b.angle) * 1.5;
+            } else if (type !== "melee" && type !== "whip" && type !== "orb" && minDist < 120) {
+                // Ranged units back off if too close
+                b.x -= Math.cos(b.angle) * 1.0;
+                b.y -= Math.sin(b.angle) * 1.0;
+            }
+
+            // ── Attack dispatch ──
+            if (!(b.cooldown > 0)) {
+                switch (type) {
+                    case "melee":      this.doMelee(b, target, minDist);  break;
+                    case "projectile": this.doProjectile(b, target);       break;
+                    case "magic":      this.doMagic(b, target);            break;
+                    case "whip":       this.doWhip(b, target, minDist);    break;
+                    case "orb": /* orb damage handled in updateOrbs */     break;
                 }
             }
             if (b.cooldown > 0) b.cooldown--;
 
-            // Boundary checks
+            // Boundary clamp
             b.x = Math.max(60, Math.min(width - 60, b.x));
             b.y = Math.max(100, Math.min(height - 40, b.y));
         });
 
-        // Bullet Physics
-        for (let i = this.bullets.length - 1; i >= 0; i--) {
-            let blt = this.bullets[i];
-            blt.x += blt.vx;
-            blt.y += blt.vy;
-            blt.age++;
+        this.updateProjectiles(bots, width, height);
+        this.updateSwings(bots);
+        this.updateWhips(bots);
+        this.updateOrbs(bots, time);
+        this.updateScratches();
+    }
+
+    // ─────────────────────────────────────────
+    // Attack creators
+    // ─────────────────────────────────────────
+
+    doMelee(b, target, dist) {
+        if (dist > 85) return; // Must be close enough to swing
+        this.swings.push({
+            x: b.x,
+            y: b.y,
+            angle: b.angle,
+            weapon: b.weapon,
+            accent: b.palette.accent,
+            owner: b,
+            target: target,
+            life: 0,
+            maxLife: b.weapon === "axe" ? 22 : b.weapon === "claws" ? 14 : 14,
+            hit: false
+        });
+        b.cooldown = b.weapon === "axe" ? 60 : b.weapon === "claws" ? 22 : 32;
+    }
+
+    doProjectile(b, target) {
+        const isSpear = b.weapon === "spear";
+        this.projectiles.push({
+            x: b.x,
+            y: b.y - 30,
+            vx: Math.cos(b.angle) * (isSpear ? 5 : 10),
+            vy: Math.sin(b.angle) * (isSpear ? 5 : 10),
+            weapon: b.weapon,
+            accent: b.palette.accent,
+            owner: b,
+            damage: isSpear ? 40 : 20,
+            age: 0
+        });
+        b.cooldown = isSpear ? 95 : 40;
+    }
+
+    doMagic(b, target) {
+        this.projectiles.push({
+            x: b.x,
+            y: b.y - 30,
+            vx: Math.cos(b.angle) * 3,
+            vy: Math.sin(b.angle) * 3,
+            weapon: "staff",
+            accent: b.palette.accent,
+            owner: b,
+            target: target,
+            damage: 20,
+            seeking: true,
+            seekStrength: 0.055,
+            age: 0
+        });
+        b.cooldown = 70;
+    }
+
+    doWhip(b, target, dist) {
+        if (dist > 145) return;
+        this.whips.push({
+            x: b.x,
+            y: b.y - 30,
+            angle: b.angle,
+            owner: b,
+            target: target,
+            life: 0,
+            maxLife: 20,
+            hit: false,
+            accent: b.palette.accent
+        });
+        b.cooldown = 48;
+    }
+
+    // ─────────────────────────────────────────
+    // Per-frame updaters
+    // ─────────────────────────────────────────
+
+    updateProjectiles(bots, width, height) {
+        for (let i = this.projectiles.length - 1; i >= 0; i--) {
+            const p = this.projectiles[i];
+            p.age++;
+
+            // Seeking steering for magic missiles
+            if (p.seeking && p.target && p.target.hp > 0) {
+                const tx = p.target.x - p.x;
+                const ty = (p.target.y - 30) - p.y;
+                const tlen = Math.hypot(tx, ty) || 1;
+                p.vx += (tx / tlen) * p.seekStrength;
+                p.vy += (ty / tlen) * p.seekStrength;
+                // Cap speed so it can't accelerate infinitely
+                const spd = Math.hypot(p.vx, p.vy);
+                if (spd > 4) { p.vx = (p.vx / spd) * 4; p.vy = (p.vy / spd) * 4; }
+            }
+
+            p.x += p.vx;
+            p.y += p.vy;
+
             let hit = false;
-            for (let b of bots) {
-                if (b !== blt.owner && b.hp > 0 && Math.hypot(b.x - blt.x, (b.y - 30) - blt.y) < 25) {
-                    b.hp -= 20;
+            for (const b of bots) {
+                if (b !== p.owner && b.hp > 0 && Math.hypot(b.x - p.x, (b.y - 30) - p.y) < 25) {
+                    b.hp -= p.damage;
                     hit = true;
                     break;
                 }
             }
-            if (hit || blt.x < 0 || blt.x > width || blt.y < 0 || blt.y > height) {
-                this.bullets.splice(i, 1);
+
+            const maxAge = p.weapon === "spear" ? 130 : 220;
+            if (hit || p.age > maxAge || p.x < 0 || p.x > width || p.y < 0 || p.y > height) {
+                this.projectiles.splice(i, 1);
             }
         }
     }
 
-    draw(ctx) {
-        this.bullets.forEach(blt => {
-            ctx.save();
-            ctx.translate(blt.x, blt.y);
+    updateSwings(bots) {
+        for (let i = this.swings.length - 1; i >= 0; i--) {
+            const s = this.swings[i];
+            s.life++;
 
-            const angle = Math.atan2(blt.vy, blt.vx);
+            // Damage lands at the midpoint of the swing
+            if (!s.hit && s.life === Math.floor(s.maxLife * 0.5)) {
+                const reach = s.weapon === "axe" ? 78 : s.weapon === "claws" ? 58 : 68;
+                for (const b of bots) {
+                    if (b !== s.owner && b.hp > 0) {
+                        const d = Math.hypot(b.x - s.x, (b.y - 20) - s.y);
+                        if (d < reach) {
+                            b.hp -= s.weapon === "axe" ? 35 : s.weapon === "claws" ? 15 : 25;
+                            s.hit = true;
 
-            switch (blt.weapon) {
-
-                case "sword":
-                case "axe":
-                case "spear": {
-                    // A fast-moving slash / shard — white elongated line
-                    ctx.rotate(angle);
-                    ctx.strokeStyle = "#ffffff";
-                    ctx.lineWidth = 3;
-                    ctx.lineCap = "round";
-                    ctx.shadowBlur = 6;
-                    ctx.shadowColor = "#aaaaff";
-                    ctx.beginPath();
-                    ctx.moveTo(-10, 0);
-                    ctx.lineTo(10, 0);
-                    ctx.stroke();
-                    break;
-                }
-
-                case "staff":
-                case "orb": {
-                    // Glowing magic orb in the unit's accent color
-                    ctx.shadowBlur = 15;
-                    ctx.shadowColor = blt.accent;
-                    ctx.fillStyle = blt.accent;
-                    ctx.beginPath();
-                    ctx.arc(0, 0, 6, 0, Math.PI * 2);
-                    ctx.fill();
-                    // Inner white core
-                    ctx.fillStyle = "#ffffff";
-                    ctx.beginPath();
-                    ctx.arc(0, 0, 2, 0, Math.PI * 2);
-                    ctx.fill();
-                    break;
-                }
-
-                case "bow": {
-                    // Arrow — thin line with arrowhead
-                    ctx.rotate(angle);
-                    ctx.strokeStyle = "#c8a060";
-                    ctx.lineWidth = 2;
-                    ctx.lineCap = "round";
-                    ctx.beginPath();
-                    ctx.moveTo(-8, 0);
-                    ctx.lineTo(8, 0);
-                    ctx.stroke();
-                    ctx.fillStyle = "#cccccc";
-                    ctx.beginPath();
-                    ctx.moveTo(8, 0);
-                    ctx.lineTo(4, -3);
-                    ctx.lineTo(4, 3);
-                    ctx.closePath();
-                    ctx.fill();
-                    break;
-                }
-
-                case "claws": {
-                    // Quick scratch — three short diagonal lines
-                    ctx.strokeStyle = blt.accent;
-                    ctx.lineWidth = 2;
-                    ctx.lineCap = "round";
-                    ctx.shadowBlur = 4;
-                    ctx.shadowColor = blt.accent;
-                    for (let i = -4; i <= 4; i += 4) {
-                        ctx.beginPath();
-                        ctx.moveTo(i - 4, -5);
-                        ctx.lineTo(i + 4,  5);
-                        ctx.stroke();
+                            // Claws leave a scratch mark at the target's position
+                            if (s.weapon === "claws") {
+                                this.scratches.push({
+                                    x: b.x + (Math.random() * 16 - 8),
+                                    y: b.y - 40 + (Math.random() * 16 - 8),
+                                    angle: s.angle,
+                                    accent: s.accent,
+                                    life: 0,
+                                    maxLife: 90
+                                });
+                            }
+                            break;
+                        }
                     }
-                    break;
-                }
-
-                case "whip": {
-                    // Curved lash in brown/tan
-                    ctx.rotate(angle);
-                    ctx.strokeStyle = "#a0622a";
-                    ctx.lineWidth = 2;
-                    ctx.lineCap = "round";
-                    ctx.beginPath();
-                    ctx.moveTo(-8, 0);
-                    ctx.quadraticCurveTo(0, -6, 8, 0);
-                    ctx.stroke();
-                    break;
-                }
-
-                default: {
-                    // Fallback yellow square (original)
-                    ctx.fillStyle = "yellow";
-                    ctx.fillRect(-2, -2, 4, 4);
-                    break;
                 }
             }
 
+            if (s.life >= s.maxLife) this.swings.splice(i, 1);
+        }
+    }
+
+    updateWhips(bots) {
+        for (let i = this.whips.length - 1; i >= 0; i--) {
+            const w = this.whips[i];
+            w.life++;
+
+            // Damage lands at peak extension (60% through)
+            if (!w.hit && w.life === Math.floor(w.maxLife * 0.6)) {
+                for (const b of bots) {
+                    if (b !== w.owner && b.hp > 0) {
+                        const d = Math.hypot(b.x - w.x, (b.y - 30) - w.y);
+                        if (d < 135) {
+                            b.hp -= 20;
+                            w.hit = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (w.life >= w.maxLife) this.whips.splice(i, 1);
+        }
+    }
+
+    updateOrbs(bots, time) {
+        // Orb units: 3 orbiting spheres — continuous contact damage
+        bots.forEach(orbUnit => {
+            if (orbUnit.hp <= 0 || orbUnit.weapon !== "orb") return;
+            const count = 3;
+            for (let i = 0; i < count; i++) {
+                const orbAngle = time * 2 + (i / count) * Math.PI * 2;
+                const radius = 55;
+                const ox = orbUnit.x + Math.cos(orbAngle) * radius;
+                const oy = (orbUnit.y - 30) + Math.sin(orbAngle) * radius * 0.5;
+
+                bots.forEach(b => {
+                    if (b !== orbUnit && b.hp > 0 && Math.hypot(b.x - ox, (b.y - 30) - oy) < 18) {
+                        b.hp -= 0.4; // Steady burn on contact
+                    }
+                });
+            }
+        });
+    }
+
+    updateScratches() {
+        for (let i = this.scratches.length - 1; i >= 0; i--) {
+            this.scratches[i].life++;
+            if (this.scratches[i].life >= this.scratches[i].maxLife) {
+                this.scratches.splice(i, 1);
+            }
+        }
+    }
+
+    // ─────────────────────────────────────────
+    // Draw — called every frame after update
+    // ─────────────────────────────────────────
+    draw(ctx, bots, time) {
+        this.drawScratches(ctx);
+        this.drawProjectiles(ctx);
+        this.drawSwings(ctx);
+        this.drawWhips(ctx);
+        this.drawOrbs(ctx, bots, time);
+    }
+
+    drawProjectiles(ctx) {
+        this.projectiles.forEach(p => {
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            const angle = Math.atan2(p.vy, p.vx);
+
+            if (p.weapon === "bow") {
+                // Styled arrow
+                ctx.rotate(angle);
+                ctx.strokeStyle = "#c8a060";
+                ctx.lineWidth = 2;
+                ctx.lineCap = "round";
+                ctx.beginPath();
+                ctx.moveTo(-10, 0);
+                ctx.lineTo(10, 0);
+                ctx.stroke();
+                // Arrowhead
+                ctx.fillStyle = "#cccccc";
+                ctx.beginPath();
+                ctx.moveTo(10, 0);
+                ctx.lineTo(5, -3);
+                ctx.lineTo(5,  3);
+                ctx.closePath();
+                ctx.fill();
+                // Fletching
+                ctx.strokeStyle = "#884422";
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(-10, 0); ctx.lineTo(-15, -4);
+                ctx.moveTo(-10, 0); ctx.lineTo(-15,  4);
+                ctx.stroke();
+
+            } else if (p.weapon === "spear") {
+                // Flying spear — larger and slower than arrow
+                ctx.rotate(angle);
+                ctx.strokeStyle = "#aaaaaa";
+                ctx.lineWidth = 3;
+                ctx.lineCap = "round";
+                ctx.beginPath();
+                ctx.moveTo(-20, 0);
+                ctx.lineTo(14, 0);
+                ctx.stroke();
+                ctx.fillStyle = "#dddddd";
+                ctx.beginPath();
+                ctx.moveTo(14, 0);
+                ctx.lineTo(8, -5);
+                ctx.lineTo(8,  5);
+                ctx.closePath();
+                ctx.fill();
+
+            } else if (p.weapon === "staff") {
+                // Seeking magic missile — glowing orb with colour pulse and trail
+                const pulse = 0.7 + Math.sin(p.age * 0.5) * 0.3;
+                ctx.shadowBlur = 22;
+                ctx.shadowColor = p.accent;
+                ctx.fillStyle = p.accent;
+                ctx.globalAlpha = pulse;
+                ctx.beginPath();
+                ctx.arc(0, 0, 7, 0, Math.PI * 2);
+                ctx.fill();
+                // White hot core
+                ctx.fillStyle = "#ffffff";
+                ctx.globalAlpha = 1.0;
+                ctx.shadowBlur = 0;
+                ctx.beginPath();
+                ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
+                ctx.fill();
+                // Faint trail behind it
+                ctx.globalAlpha = 0.25;
+                ctx.fillStyle = p.accent;
+                ctx.beginPath();
+                ctx.arc(-p.vx * 2, -p.vy * 2, 5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1.0;
+            }
+
+            ctx.restore();
+        });
+    }
+
+    drawSwings(ctx) {
+        this.swings.forEach(s => {
+            const t = s.life / s.maxLife; // 0 → 1 through animation
+            ctx.save();
+            ctx.translate(s.x, s.y - 20);
+            ctx.rotate(s.angle);
+
+            if (s.weapon === "sword") {
+                // Arc sweep: rotates from -50° to +50° through the swing
+                const sweepAngle = (t - 0.5) * (Math.PI * 0.9);
+                ctx.rotate(sweepAngle);
+                ctx.strokeStyle = `rgba(200, 220, 255, ${1 - t})`;
+                ctx.lineWidth = 4;
+                ctx.lineCap = "round";
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = "#aaaaff";
+                ctx.beginPath();
+                ctx.moveTo(8, 0);
+                ctx.lineTo(65, 0);
+                ctx.stroke();
+                // Glint line along blade
+                ctx.strokeStyle = `rgba(255,255,255,${0.7 - t})`;
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(18, -2);
+                ctx.lineTo(62, -2);
+                ctx.stroke();
+
+            } else if (s.weapon === "axe") {
+                // Heavy overhead chop arcs downward
+                const chopAngle = (t - 0.25) * Math.PI * 1.2;
+                ctx.rotate(chopAngle - Math.PI * 0.5);
+                ctx.fillStyle = `rgba(170, 160, 140, ${1 - t})`;
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = "#999";
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(58, -22);
+                ctx.lineTo(58,  22);
+                ctx.closePath();
+                ctx.fill();
+
+            } else if (s.weapon === "claws") {
+                // Triple rapid scratch lines fanning outward
+                ctx.strokeStyle = `rgba(255, 160, 60, ${1 - t})`;
+                ctx.lineWidth = 2.5;
+                ctx.lineCap = "round";
+                ctx.shadowBlur = 6;
+                ctx.shadowColor = s.accent;
+                for (let i = -1; i <= 1; i++) {
+                    ctx.save();
+                    ctx.rotate(i * 0.25);
+                    ctx.beginPath();
+                    ctx.moveTo(12, 0);
+                    ctx.lineTo(55, 0);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+            }
+
+            ctx.restore();
+        });
+    }
+
+    drawWhips(ctx) {
+        this.whips.forEach(w => {
+            const t = w.life / w.maxLife;
+            // Extend 0→0.6, retract 0.6→1.0
+            const ext = t < 0.6 ? t / 0.6 : 1 - ((t - 0.6) / 0.4);
+            const tipDist = ext * 125;
+
+            const tipX = w.x + Math.cos(w.angle) * tipDist;
+            const tipY = w.y + Math.sin(w.angle) * tipDist;
+            // Midpoint droops for a natural whip curve
+            const midX = w.x + Math.cos(w.angle) * tipDist * 0.5;
+            const midY = w.y + Math.sin(w.angle) * tipDist * 0.5 + 20 * ext;
+
+            ctx.save();
+            ctx.strokeStyle = `rgba(150, 80, 20, ${0.9 - t * 0.3})`;
+            ctx.lineWidth = 3;
+            ctx.lineCap = "round";
+            ctx.shadowBlur = 5;
+            ctx.shadowColor = w.accent;
+            ctx.beginPath();
+            ctx.moveTo(w.x, w.y);
+            ctx.quadraticCurveTo(midX, midY, tipX, tipY);
+            ctx.stroke();
+
+            // Crack flash at peak extension
+            if (t > 0.5 && t < 0.7) {
+                const flashAlpha = (0.7 - t) * 5;
+                ctx.fillStyle = `rgba(255, 255, 200, ${flashAlpha})`;
+                ctx.shadowBlur = 18;
+                ctx.shadowColor = "#ffffff";
+                ctx.beginPath();
+                ctx.arc(tipX, tipY, 5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            ctx.restore();
+        });
+    }
+
+    drawOrbs(ctx, bots, time) {
+        bots.forEach(orbUnit => {
+            if (orbUnit.hp <= 0 || orbUnit.weapon !== "orb") return;
+            const count = 3;
+            for (let i = 0; i < count; i++) {
+                const orbAngle = time * 2 + (i / count) * Math.PI * 2;
+                const radius = 55;
+                const ox = orbUnit.x + Math.cos(orbAngle) * radius;
+                const oy = (orbUnit.y - 30) + Math.sin(orbAngle) * radius * 0.5;
+
+                ctx.save();
+                ctx.shadowBlur = 18;
+                ctx.shadowColor = orbUnit.palette.accent;
+                ctx.fillStyle = orbUnit.palette.accent;
+                ctx.globalAlpha = 0.85;
+                ctx.beginPath();
+                ctx.arc(ox, oy, 8, 0, Math.PI * 2);
+                ctx.fill();
+                // White inner core
+                ctx.fillStyle = "#ffffff";
+                ctx.globalAlpha = 1.0;
+                ctx.shadowBlur = 0;
+                ctx.beginPath();
+                ctx.arc(ox, oy, 2.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        });
+    }
+
+    drawScratches(ctx) {
+        this.scratches.forEach(s => {
+            const alpha = 1 - (s.life / s.maxLife);
+            ctx.save();
+            ctx.translate(s.x, s.y);
+            ctx.rotate(s.angle);
+            ctx.strokeStyle = `rgba(255, 60, 60, ${alpha})`;
+            ctx.lineWidth = 2;
+            ctx.lineCap = "round";
+            for (let i = -1; i <= 1; i++) {
+                ctx.save();
+                ctx.rotate(i * 0.18);
+                ctx.beginPath();
+                ctx.moveTo(-13, i * 5);
+                ctx.lineTo(13,  i * 5);
+                ctx.stroke();
+                ctx.restore();
+            }
             ctx.restore();
         });
     }
