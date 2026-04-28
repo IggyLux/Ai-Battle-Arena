@@ -33,7 +33,13 @@ export class Unit {
         this.topOfHeadY = 0;
     }
 
-    draw(ctx, time, scale = 0.35) {
+    /**
+     * @param {CanvasRenderingContext2D} ctx 
+     * @param {number} time 
+     * @param {number} scale 
+     * @param {boolean} showUI - If true, renders health bar, name tag, and selection aura.
+     */
+    draw(ctx, time, scale = 0.35, showUI = false) {
         if (this.hp <= 0) return;
         const p = this.palette;
         const walk = Math.sin(time) * 30;
@@ -53,14 +59,16 @@ export class Unit {
         if(this.head === "Wizard") headVisualTop = -130 * bh - 115;
         else if(this.head === "Horned" || this.head === "Crown") headVisualTop = -130 * bh - 85;
         else if(this.head === "Spiked") headVisualTop = -130 * bh - 42;
+        
+        // This coordinate is used for UI positioning
         this.topOfHeadY = this.y + (bob * scale) + (headVisualTop * scale);
 
         ctx.save();
         ctx.translate(this.x, this.y + (bob * scale));
         ctx.scale(scale, scale);
 
-        // Player Aura
-        if (this.isPlayer) {
+        // --- BATTLE UI: SELECTION AURA ---
+        if (showUI && this.isPlayer) {
             ctx.save();
             ctx.beginPath();
             ctx.ellipse(0, 0, 110, 40, 0, 0, Math.PI * 2);
@@ -71,6 +79,7 @@ export class Unit {
             ctx.restore();
         }
 
+        // --- CHARACTER ART ---
         if(this.hasWings) {
             ctx.fillStyle = p.accent; ctx.globalAlpha = 0.6;
             const wingW = 80 + Math.sin(time * 2) * 10;
@@ -83,44 +92,4 @@ export class Unit {
         ctx.beginPath(); ctx.moveTo(20 * bw, -40); ctx.lineTo(30 * bw - walk / 2, 0); ctx.stroke();
         
         ctx.lineWidth = 10 * bw;
-        ctx.beginPath(); ctx.moveTo(-30 * bw, -120 * bh); ctx.lineTo(-50 * bw - walk / 3, -70 * bh); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(30 * bw, -120 * bh); ctx.lineTo(50 * bw + walk / 3, -70 * bh); ctx.stroke();
-        
-        ctx.fillStyle = p.armor; ctx.beginPath(); ctx.roundRect(-torsoW / 2, -130 * bh, torsoW, torsoH, 10); ctx.fill();
-        
-        if(this.hasBreasts) {
-            const bBounce = Math.abs(Math.sin(time * 12)) * 3;
-            const bRad = torsoW * 0.23, bY = -130 * bh + (torsoH * 0.3) + bBounce; 
-            ctx.beginPath(); ctx.arc(-torsoW * 0.24, bY, bRad, 0, Math.PI * 2); ctx.fill();
-            ctx.beginPath(); ctx.arc(torsoW * 0.24, bY, bRad, 0, Math.PI * 2); ctx.fill();
-        }
-
-        ctx.save();
-        ctx.translate(hunch, -130 * bh);
-        const hr = 25;
-        ctx.fillStyle = (this.head === "Skull") ? "#eee" : p.armor;
-        ctx.beginPath(); ctx.arc(0, -30, hr, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = p.accent; ctx.strokeStyle = p.accent;
-        // Simplified Head switch for brevity - keeping logic the same
-        if(this.head === "Skull") { ctx.fillStyle="#333"; ctx.fillRect(-10,-35,5,5); ctx.fillRect(5,-35,5,5); }
-        ctx.restore();
-
-        // Weapon
-        ctx.save(); ctx.translate(40 * bw, -90 * bh); ctx.rotate(Math.sin(time) * 0.2); 
-        ctx.strokeStyle = "#bbb"; ctx.lineWidth = 6;
-        ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,-80); ctx.stroke();
-        ctx.restore();
-
-        ctx.restore();
-
-        // UI Layer (Health/Name)
-        let barY = this.topOfHeadY - 20;
-        ctx.font = this.isPlayer ? "bold 14px sans-serif" : "12px sans-serif";
-        ctx.fillStyle = this.isPlayer ? "#ffd700" : "#ffffff";
-        ctx.textAlign = "center";
-        ctx.fillText(this.isPlayer ? "YOU" : this.name, this.x, barY - 10);
-        ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.fillRect(this.x - 20, barY, 40, 5);
-        ctx.fillStyle = this.isPlayer ? "#00ffff" : "#0f0";
-        ctx.fillRect(this.x - 20, barY, (this.hp / 100) * 40, 5);
-    }
-}
+        ctx.beginPath(); ctx.moveTo(-30 * bw,
