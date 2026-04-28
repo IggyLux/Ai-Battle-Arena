@@ -48,30 +48,34 @@ export class Unit {
         
         const torsoW = 60 * bw, torsoH = 90 * bh;
         
-        // Calculate head position for UI placement
+        // Calculate dynamic head height for UI labels
         let headVisualTop = -130 * bh - 60; 
         if(this.head === "Wizard") headVisualTop = -130 * bh - 115;
         else if(this.head === "Horned" || this.head === "Crown") headVisualTop = -130 * bh - 85;
         else if(this.head === "Spiked") headVisualTop = -130 * bh - 42;
         
-        // Final pixel coordinate for the UI layer
+        // Global Y coordinate for the UI
         this.topOfHeadY = this.y + (bob * scale) + (headVisualTop * scale);
 
-        // --- GROUND UI LAYER (Selection Aura) ---
+        ctx.save();
+        // Translate to the character position before ANY drawing occurs
+        ctx.translate(this.x, this.y);
+
+        // 1. Selection Aura (Ground Circle) - Drawn AT (0,0) inside translated context
         if(showUI && this.isPlayer) {
             ctx.save();
-            ctx.translate(this.x, this.y);
             ctx.beginPath(); 
-            ctx.ellipse(0, 0, 80 * scale * 3, 30 * scale * 3, 0, 0, Math.PI*2);
+            ctx.ellipse(0, 0, 110 * scale, 40 * scale, 0, 0, Math.PI * 2);
             ctx.strokeStyle = "rgba(255, 215, 0, 0.8)"; 
-            ctx.lineWidth = 6;
-            ctx.setLineDash([10, 10]); 
+            ctx.lineWidth = 4;
+            ctx.setLineDash([5, 5]); 
             ctx.stroke();
             ctx.restore();
         }
 
+        // Apply secondary translation for animation and scale for the body
         ctx.save();
-        ctx.translate(this.x, this.y + (bob * scale));
+        ctx.translate(0, bob * scale);
         ctx.scale(scale, scale);
 
         // Wings
@@ -95,7 +99,7 @@ export class Unit {
         // Torso
         ctx.fillStyle = p.armor; ctx.beginPath(); ctx.roundRect(-torsoW / 2, -130 * bh, torsoW, torsoH, 10); ctx.fill();
         
-        // Breasts (Logic restored for "Busty" detection)
+        // Breasts (Detection logic restored)
         if(this.hasBreasts) {
             const bBounce = Math.abs(Math.sin(time * 12)) * 3;
             const bRad = torsoW * 0.23, bY = -130 * bh + (torsoH * 0.3) + bBounce, bOff = torsoW * 0.24; 
@@ -104,7 +108,7 @@ export class Unit {
             ctx.beginPath(); ctx.arc(bOff, bY, bRad, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
         }
 
-        // Head Variations
+        // Head
         ctx.save();
         ctx.translate(hunch, -130 * bh);
         const hr = 25;
@@ -141,9 +145,10 @@ export class Unit {
             case "orb": ctx.fillStyle = p.accent; ctx.shadowBlur = 15; ctx.shadowColor = p.accent; ctx.beginPath(); ctx.arc(0, -30, 15, 0, Math.PI*2); ctx.fill(); break;
         }
         ctx.restore(); 
-        ctx.restore();
+        ctx.restore(); // Restore body bob/scale
+        ctx.restore(); // Restore global translation
 
-        // --- TOP UI LAYER (Health & Label) ---
+        // 2. UI Layer (YOU and Health) - Positioned relative to global canvas
         if (showUI) {
             let barY = this.topOfHeadY - 20;
             ctx.font = this.isPlayer ? "bold 16px sans-serif" : "12px sans-serif";
@@ -151,7 +156,6 @@ export class Unit {
             ctx.textAlign = "center";
             ctx.fillText(this.isPlayer ? "YOU" : this.name, this.x, barY - 15);
             
-            // Health Bar
             ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.fillRect(this.x - 30, barY, 60, 6);
             ctx.fillStyle = this.isPlayer ? "#00ffff" : "#0f0";
             ctx.fillRect(this.x - 30, barY, (this.hp / 100) * 60, 6);
