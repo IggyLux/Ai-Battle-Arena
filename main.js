@@ -36,14 +36,14 @@ function loop() {
     if (gameState === "creator") {
         dCtx.clearRect(0, 0, dCanvas.width, dCanvas.height);
         
-        // FIX: Explicitly center the character in the Preview Window
+        // Explicitly center the character in the Preview Window
         userChar.x = dCanvas.width / 2;
         userChar.y = dCanvas.height * 0.8; 
         
-        // Draw at 1.0 scale with UI enabled
-        userChar.draw(dCtx, time, 1.0, true);
+        // DRAW CALL FIXED: Changed 'true' to 'false' to remove UI/Aura from Creator
+        userChar.draw(dCtx, time, 1.0, false);
         
-        // RESTORED: All 4 generation traits
+        // All 4 generation traits
         const debugBox = document.getElementById('debug');
         if (debugBox) {
             debugBox.innerText = `SEED: ${userChar.seed} | BUILD: ${userChar.build} | HEAD: ${userChar.head} | GEAR: ${userChar.weapon}`;
@@ -52,20 +52,26 @@ function loop() {
         aCtx.clearRect(0, 0, aCanvas.width, aCanvas.height);
         arena.update(bots, aCanvas.width, aCanvas.height);
         arena.draw(aCtx);
+        
+        // Keep 'true' here so UI shows up during Battle
         bots.forEach(b => b.draw(aCtx, time, 0.35, true));
-        document.getElementById('aliveCount').innerText = `ALIVE: ${bots.filter(b=>b.hp>0).length}`;
+        
+        const aliveCountElement = document.getElementById('aliveCount');
+        if (aliveCountElement) {
+            aliveCountElement.innerText = `ALIVE: ${bots.filter(b => b.hp > 0).length}`;
+        }
     }
     requestAnimationFrame(loop);
 }
 
 const input = document.getElementById('charInput');
 input.addEventListener('input', () => {
-    // FIX: Pass 'true' as the second argument so the Aura/YOU label works
+    // Keep 'true' here for the constructor so the unit knows it IS the player
     userChar = new Unit(input.value || " ", true); 
 });
 
 document.getElementById('btnEnter').addEventListener('click', startBattle);
 
-// Initialize with 'true' for the player aura
+// Initialize
 userChar = new Unit(input.value || "Player", true);
 loop();
