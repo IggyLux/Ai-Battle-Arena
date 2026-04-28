@@ -59,7 +59,7 @@ export class Unit {
         ctx.translate(this.x, this.y + (bob * scale));
         ctx.scale(scale, scale);
 
-        // UI: Selection Aura (Only if showUI is true)
+        // Player Aura (Battle Only)
         if (showUI && this.isPlayer) {
             ctx.save();
             ctx.beginPath();
@@ -71,46 +71,75 @@ export class Unit {
             ctx.restore();
         }
 
-        // --- ART ---
+        // Wings
         if(this.hasWings) {
             ctx.fillStyle = p.accent; ctx.globalAlpha = 0.6;
             const wingW = 80 + Math.sin(time * 2) * 10;
-            ctx.beginPath(); ctx.ellipse(-30 * bw, -90 * bh, wingW, 25, 0.5, 0, Math.PI * 2);
-            ctx.ellipse(30 * bw, -90 * bh, wingW, 25, -0.5, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1.0;
+            ctx.beginPath(); 
+            ctx.ellipse(-30 * bw, -90 * bh, wingW, 25, 0.5, 0, Math.PI * 2);
+            ctx.ellipse(30 * bw, -90 * bh, wingW, 25, -0.5, 0, Math.PI * 2); 
+            ctx.fill(); 
+            ctx.globalAlpha = 1.0;
         }
 
+        // Legs
         ctx.strokeStyle = p.skin; ctx.lineWidth = 12 * bw; ctx.lineCap = "round";
         ctx.beginPath(); ctx.moveTo(-20 * bw, -40); ctx.lineTo(-30 * bw + walk / 2, 0); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(20 * bw, -40); ctx.lineTo(30 * bw - walk / 2, 0); ctx.stroke();
+        
+        // Arms
         ctx.lineWidth = 10 * bw;
         ctx.beginPath(); ctx.moveTo(-30 * bw, -120 * bh); ctx.lineTo(-50 * bw - walk / 3, -70 * bh); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(30 * bw, -120 * bh); ctx.lineTo(50 * bw + walk / 3, -70 * bh); ctx.stroke();
-        ctx.fillStyle = p.armor; ctx.beginPath(); ctx.roundRect(-torsoW / 2, -130 * bh, torsoW, torsoH, 10); ctx.fill();
         
+        // Torso
+        ctx.fillStyle = p.armor; 
+        ctx.beginPath(); 
+        ctx.roundRect(-torsoW / 2, -130 * bh, torsoW, torsoH, 10); 
+        ctx.fill();
+        
+        // Restored Breast Logic
         if(this.hasBreasts) {
             const bBounce = Math.abs(Math.sin(time * 12)) * 3;
-            const bRad = torsoW * 0.23, bY = -130 * bh + (torsoH * 0.3) + bBounce; 
+            const bRad = torsoW * 0.28, bY = -130 * bh + (torsoH * 0.35) + bBounce; 
+            ctx.fillStyle = p.armor;
             ctx.beginPath(); ctx.arc(-torsoW * 0.24, bY, bRad, 0, Math.PI * 2); ctx.fill();
             ctx.beginPath(); ctx.arc(torsoW * 0.24, bY, bRad, 0, Math.PI * 2); ctx.fill();
+            // Optional: Slight accent highlight for volume
+            ctx.strokeStyle = "rgba(255,255,255,0.1)"; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(-torsoW * 0.24, bY, bRad, 0, Math.PI); ctx.stroke();
         }
 
+        // Head Logic (Restored Skull/Detail)
         ctx.save();
         ctx.translate(hunch, -130 * bh);
         const hr = 25;
         ctx.fillStyle = (this.head === "Skull") ? "#eee" : p.armor;
-        ctx.beginPath(); ctx.arc(0, -30, hr, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = p.accent; ctx.strokeStyle = p.accent;
-        if(this.head === "Skull") { ctx.fillStyle="#333"; ctx.fillRect(-10,-35,5,5); ctx.fillRect(5,-35,5,5); }
+        ctx.beginPath(); ctx.arc(0, -35, hr, 0, Math.PI * 2); ctx.fill();
+        
+        // Face details
+        if(this.head === "Skull") { 
+            ctx.fillStyle="#111"; 
+            ctx.beginPath(); ctx.arc(-7, -38, 4, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(7, -38, 4, 0, Math.PI * 2); ctx.fill();
+            ctx.fillRect(-5, -28, 10, 2);
+        } else {
+            ctx.fillStyle = p.accent;
+            ctx.fillRect(-8, -40, 5, 3); ctx.fillRect(3, -40, 5, 3);
+        }
         ctx.restore();
 
-        ctx.save(); ctx.translate(40 * bw, -90 * bh); ctx.rotate(Math.sin(time) * 0.2); 
+        // Weapon
+        ctx.save(); 
+        ctx.translate(45 * bw, -90 * bh); 
+        ctx.rotate(Math.sin(time * 2) * 0.15); 
         ctx.strokeStyle = "#bbb"; ctx.lineWidth = 6;
         ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,-80); ctx.stroke();
         ctx.restore();
 
         ctx.restore();
 
-        // UI: Health/Name (Only if showUI is true)
+        // UI Layer
         if (showUI) {
             let barY = this.topOfHeadY - 20;
             ctx.font = this.isPlayer ? "bold 14px sans-serif" : "12px sans-serif";
